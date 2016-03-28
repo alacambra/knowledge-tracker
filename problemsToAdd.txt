@@ -1,0 +1,77 @@
+headpro/deployment
+  requirement:  wars should incorporate the build version to the war file and the url context must be constant
+    problem: by default the context path is the war name
+      solution: set the finalName mvn build attribute and the war name using mvn war plugin
+          solution:
+            * step: use mvn war plugin to set war name
+                      - ref: https://maven.apache.org/plugins/maven-war-plugin/war-mojo.html
+            * step: put the version from the finalName element
+            result: does not work.
+              * war has the correct name
+              * context changes
+          solution: set the finalName mvn build attribute and use jboss-web.xml context-root element
+            * step: put the version from the finalName element
+              * or step use mvn war plugin to set war name
+                  - ref: https://maven.apache.org/plugins/maven-war-plugin/war-mojo.html
+            * step: use jboss-web.xml context-root element
+              - ref:http://stackoverflow.com/questions/32241906/how-to-deploy-war-file-in-root-context-to-wildfly-ver-9-0-1
+            result: worked
+            notice: only for jboss servers
+    requirement: headpro app must be build with the correct war executing docker-compose up:
+      solution: add field "build: {pathToDockerfile}" to docker-compose.yml
+    requirement: each deployment must belong to a new software version. This software version must be tagged in github.
+      - step: uniform all pom versions
+          solution:  use command "mvn release:update-versions -DautoVersionSubmodules=true"
+      - step: push changes to github, create a tag and prepare for new integration-test
+          solution: use mvn release plugin mvn release:prepare
+    requirement:
+      - to deploy a war it can be fetched through wget from github releases
+        problem: server must have access to fetch the war file but nothing else
+        solution: use a deployment key on github
+          problem: server says "Could not open a connection to your authentication agent."
+            solution: execute "eval `ssh-agent -s`" on bash cli
+        result: not working: wget uses https and not scp, so the key can not help
+    requirement: automatize build and deployment process:
+     - step: remove old webapp from server
+     - step: build webapp using "gulp build"
+     - step: run UT on headpro
+     - step: run IT on headpro
+     - step: create snapshot war
+     - step: run ST
+      - step: copy war to ST environment
+      - step: docker-compose up
+      - step: run IT in headpro-st
+     - step: increase version
+     - step: create release war
+     - step: push tag to github
+     - step: upload to prod server
+     - step: backup db
+     - step: docker-compose up
+    requirement: install a proxy that allow to access to the internet accessible service:
+      - task: prepare nginx to work as a proxy. It should allow access through http/s. Services supported are
+          * keycloak for login
+          * headpro app
+        - step: prepare keys for https domains
+        - step: add nginx into docker-compose.yml
+
+    requirement: it should be possible to add new headpro domains for demo and testing purpose
+      - note: persistence.xml needs to be updated or a new db raised up
+      - step: create new nginx file
+      - step: reload docker-compose
+    requirement: load infrastructure with services able to communicate between them
+      - solution: use docker-compose integrating in a file all needed services.
+          Use the networks attribute to allow connections between services belonging to a same application
+        problem: Services are not aiting the db to be inizialized:
+          solution: rund first docker-compose db up and then docker compose uo
+        problem: in a first launch databases headpro and keylcoak are not created.
+          solution: in docker-entrypoint.sh add the followin commands
+          	echo "CREATE DATABASE IF NOT EXISTS \`headpro\` ;" | "${mysql[@]}"
+        		echo "CREATE DATABASE IF NOT EXISTS \`keycloak\` ;" | "${mysql[@]}"
+
+
+
+
+
+
+
+      -
